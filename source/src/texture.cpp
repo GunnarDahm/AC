@@ -354,7 +354,25 @@ GLuint loadsurface(const char *texname, int &xs, int &ys, int &bpp, int clamp = 
             delete z;
         }
     }
+#ifdef __ANDROID__
+    else if(!s)
+    {
+        // SDL_RWFromFile (used by IMG_Load) ignores the working directory on Android, so read through our own stream
+        stream *f = openfile(ffile, "rb");
+        if(f)
+        {
+            SDL_RWops *rw = f->rwops();
+            if(rw)
+            {
+                s = IMG_Load_RW(rw, 0);
+                SDL_FreeRW(rw);
+            }
+            delete f;
+        }
+    }
+#else
     else if(!s) s = IMG_Load(ffile);
+#endif
     if(!s)
     {
         if(trydl) requirepackage(PCK_TEXTURE, file);

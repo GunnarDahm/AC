@@ -76,6 +76,7 @@ CLIENT_OBJS= \
 	docs.o \
 	editing.o \
 	entities.o \
+	gamepad.o \
 	http.o \
 	log.o \
 	main.o \
@@ -269,6 +270,9 @@ editing.o: protos.h
 entities.o: cube.h platform.h tools.h geom.h model.h protocol.h sound.h
 entities.o: weapon.h entity.h world.h command.h varray.h vote.h console.h
 entities.o: protos.h
+gamepad.o: cube.h platform.h tools.h geom.h model.h protocol.h sound.h
+gamepad.o: weapon.h entity.h world.h command.h varray.h vote.h console.h
+gamepad.o: protos.h
 http.o: cube.h platform.h tools.h geom.h model.h protocol.h sound.h weapon.h
 http.o: entity.h world.h command.h varray.h vote.h console.h protos.h
 log.o: cube.h platform.h tools.h geom.h model.h protocol.h sound.h weapon.h

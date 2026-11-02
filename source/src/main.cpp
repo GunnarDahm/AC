@@ -2,6 +2,18 @@
 
 #include "cube.h"
 
+#ifdef __ANDROID__
+#include <unistd.h>
+#endif
+#ifdef USE_GLES
+#include <gl4esinit.h>
+#endif
+
+extern void initgamepads();
+extern void cleanupgamepads();
+extern bool gamepadevent(const SDL_Event &e);
+extern void updategamepads();
+
 void cleanup(char *msg)         // single program exit point;
 {
     if(clientlogfile) clientlogfile->fflush();
@@ -11,12 +23,16 @@ void cleanup(char *msg)         // single program exit point;
         audiomgr.soundcleanup();
         cleanupserver();
     }
+    cleanupgamepads();
     SDL_ShowCursor(SDL_TRUE);
     SDL_SetRelativeMouseMode(SDL_FALSE);
     if(msg)
     {
         #ifdef WIN32
         MessageBox(NULL, msg, "AssaultCube fatal error", MB_OK|MB_SYSTEMMODAL|MB_ICONERROR);
+        #elif defined(__ANDROID__)
+        clientlogf("%s", msg);
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "AssaultCube fatal error", msg, NULL);
         #else
         printf("%s", msg);
         #endif
@@ -180,6 +196,9 @@ void inputgrab(bool on, bool delay = false)
 void setfullscreen(bool enable)
 {
     if(!screen) return;
+#ifdef __ANDROID__
+    return; // always fullscreen
+#endif
     if(enable == !(SDL_GetWindowFlags(screen) & SDL_WINDOW_FULLSCREEN))
     {
         extern int fullscreendesktop;
@@ -488,7 +507,11 @@ bool needsautoscreenshot = false;
 
 void updatescreensize()
 {
+#ifdef __ANDROID__
+    SDL_GL_GetDrawableSize(screen, &screenw, &screenh);
+#else
     SDL_GetWindowSize(screen, &screenw, &screenh);
+#endif
     if(screenh < 1) screenh = 1;
     VIRTW = screenw * VIRTH / screenh;
     glViewport(0, 0, screenw, screenh);
@@ -555,6 +578,25 @@ void getdisplayresolutions()
 }
 COMMAND(getdisplayresolutions, "");
 
+#ifdef USE_GLES
+static void APIENTRY_GL4ES getmainfbsize(int *w, int *h)
+{
+    SDL_GL_GetDrawableSize(screen, w, h);
+}
+
+// gl4es runs the engine's desktop OpenGL code on top of the OpenGL ES 2 context SDL created
+static void initgles()
+{
+    static bool initialized = false;
+    if(initialized) return;
+    initialized = true;
+    SDL_setenv("LIBGL_NOBANNER", "1", 0);
+    set_getprocaddress((void *(APIENTRY_GL4ES *)(const char *))SDL_GL_GetProcAddress);
+    set_getmainfbsize(getmainfbsize);
+    initialize_gl4es();
+}
+#endif
+
 void setupscreen(int &useddepthbits, int &usedfsaa)
 {
     if(glcontext)
@@ -591,6 +633,16 @@ void setupscreen(int &useddepthbits, int &usedfsaa)
 
     int flags = SDL_WINDOW_RESIZABLE;
     if(fullscreen) flags |= fullscreendesktop ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN;
+#ifdef __ANDROID__
+    flags = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_ALLOW_HIGHDPI;
+    winw = scr_w = desktopw;
+    winh = scr_h = desktoph;
+#endif
+#ifdef USE_GLES
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
 
     static int configs[] =
     {
@@ -647,6 +699,10 @@ void setupscreen(int &useddepthbits, int &usedfsaa)
 
     if(vsync>=0) SDL_GL_SetSwapInterval(vsync);
 
+#ifdef USE_GLES
+    initgles();
+#endif
+
     updatescreensize();
 
     inputgrab(grabinput = fullscreen ? true : false);
@@ -677,7 +733,13 @@ void resetgl()
     c2skeepalive();
 
     int useddepthbits = 0, usedfsaa = 0;
+#ifdef USE_GLES
+    // gl4es keeps its state tied to the first context, so keep the window and only reload resources
+    useddepthbits = depthbits;
+    updatescreensize();
+#else
     setupscreen(useddepthbits, usedfsaa);
+#endif
     gl_init(screenw, screenh, useddepthbits, usedfsaa);
 
     extern void reloadfonts();
@@ -838,6 +900,99 @@ static void checkmousemotion(int &dx, int &dy)
     }
 }
 
+#ifdef __ANDROID__
+// touch screen: one finger drags to look around (or scrolls a menu), a tap selects menu items or clicks MOUSE1,
+// and a second finger held down while the first one looks holds MOUSE1 (attack)
+VARP(touchlookspeed, 1, 100, 1000); // percent
+
+static struct
+{
+    bool down, moved, firing;
+    SDL_FingerID id, fireid;
+    float startx, starty, restx, resty;
+} touch = { false, false, false, 0, 0, 0, 0, 0, 0 };
+
+static void touchevent(const SDL_TouchFingerEvent &f, Uint32 type)
+{
+    if(f.touchId == SDL_MOUSE_TOUCHID) return; // synthesized from a real mouse
+    switch(type)
+    {
+        case SDL_FINGERDOWN:
+            if(!touch.down)
+            {
+                touch.down = true;
+                touch.moved = false;
+                touch.id = f.fingerId;
+                touch.startx = f.x;
+                touch.starty = f.y;
+                touch.restx = touch.resty = 0;
+            }
+            else if(!touch.firing && !menuallowsinput() && !getcurcommand(NULL))
+            {
+                touch.firing = true;
+                touch.fireid = f.fingerId;
+                keypress(SDL_AC_BUTTON_LEFT, 0, true);
+            }
+            break;
+
+        case SDL_FINGERMOTION:
+            if(!touch.down || f.fingerId != touch.id) break;
+            if(!touch.moved && (fabs(f.x - touch.startx) > 0.015f || fabs(f.y - touch.starty) > 0.015f)) touch.moved = true;
+            if(!touch.moved) break;
+            if(menudrag(f.dy) || getcurcommand(NULL)) break;
+            else
+            {
+                float dx = f.dx*screenw*touchlookspeed/100.0f + touch.restx, dy = f.dy*screenh*touchlookspeed/100.0f + touch.resty;
+                int idx = int(dx), idy = int(dy);
+                touch.restx = dx - idx;
+                touch.resty = dy - idy;
+                if(idx || idy) mousemove(idx, idy);
+            }
+            break;
+
+        case SDL_FINGERUP:
+            if(touch.firing && f.fingerId == touch.fireid)
+            {
+                touch.firing = false;
+                keypress(SDL_AC_BUTTON_LEFT, 0, false);
+                break;
+            }
+            if(!touch.down || f.fingerId != touch.id) break;
+            touch.down = false;
+            if(touch.moved) break;
+            if(getcurcommand(NULL)) SDL_StartTextInput(); // bring the on-screen keyboard back
+            else if(!menutouch(f.x, f.y, true))
+            {
+                keypress(SDL_AC_BUTTON_LEFT, 0, true); // tap: attack or respawn
+                keypress(SDL_AC_BUTTON_LEFT, 0, false);
+            }
+            break;
+    }
+}
+
+// pause OpenAL while the app is in the background, so looping sounds don't keep playing
+typedef void (ALC_APIENTRY *alcdevicepausefunc)(ALCdevice *device);
+
+static void pauseaudio(bool pause)
+{
+    ALCcontext *ctx = alcGetCurrentContext();
+    ALCdevice *dev = ctx ? alcGetContextsDevice(ctx) : NULL;
+    if(!dev || !alcIsExtensionPresent(dev, "ALC_SOFT_pause_device")) return;
+    alcdevicepausefunc f = (alcdevicepausefunc)alcGetProcAddress(dev, pause ? "alcDevicePauseSOFT" : "alcDeviceResumeSOFT");
+    if(f) f(dev);
+}
+
+static int SDLCALL appevents(void *, SDL_Event *e)
+{
+    switch(e->type)
+    {
+        case SDL_APP_WILLENTERBACKGROUND: pauseaudio(true); break;
+        case SDL_APP_DIDENTERFOREGROUND: pauseaudio(false); break;
+    }
+    return 1;
+}
+#endif
+
 int ignoremouse = 5, bootstrapentropy = 2;
 #define EVENTDEBUG(x) x
 //#define EVENTDEBUG(x)
@@ -870,6 +1025,11 @@ void checkinput()
                 entropy_add_byte(event.key.keysym.sym ^ totalmillis);
                 EVENTDEBUG(concatformatstring(eb, " sym %d (%Xh), scancode %d (%Xh), state %d, repeat %d", event.key.keysym.sym, event.key.keysym.sym, event.key.keysym.scancode, event.key.keysym.scancode, event.key.state, event.key.repeat));
                 if(event.key.keysym.sym == SDLK_SCANCODE_MASK) event.key.keysym.sym |= event.key.keysym.scancode; // workaround SDL 2.0.5 bug which returns sym == 40000000h for all dead keys
+                if(event.key.keysym.sym == SDLK_AC_BACK) // android back button
+                {
+                    event.key.keysym.sym = SDLK_ESCAPE;
+                    event.key.keysym.scancode = SDL_SCANCODE_ESCAPE;
+                }
                 if(!event.key.repeat || keyrepeatmask) keypress(event.key.keysym.sym, event.key.keysym.scancode, event.key.state==SDL_PRESSED, (SDL_Keymod)event.key.keysym.mod);
                 break;
 
@@ -996,6 +1156,24 @@ void checkinput()
                 lasttype = event.type;
                 lastbut = event.button.button;
                 break;
+
+            case SDL_CONTROLLERDEVICEADDED:
+            case SDL_CONTROLLERDEVICEREMOVED:
+            case SDL_CONTROLLERBUTTONDOWN:
+            case SDL_CONTROLLERBUTTONUP:
+            case SDL_CONTROLLERAXISMOTION:
+                EVENTDEBUG(concatstring(eb, "(SDL_CONTROLLER)"));
+                gamepadevent(event);
+                break;
+
+#ifdef __ANDROID__
+            case SDL_FINGERDOWN:
+            case SDL_FINGERUP:
+            case SDL_FINGERMOTION:
+                EVENTDEBUG(thres = 2; concatformatstring(eb, "(SDL_FINGER) type %d, finger %d, x %.3f, y %.3f", event.type, int(event.tfinger.fingerId), event.tfinger.x, event.tfinger.y));
+                touchevent(event.tfinger, event.type);
+                break;
+#endif
 
             case SDL_MOUSEWHEEL:
                 EVENTDEBUG(concatformatstring(eb, "(SDL_MOUSEWHEEL) x %d, y %d", event.wheel.x, event.wheel.y));
@@ -1248,6 +1426,20 @@ int main(int argc, char **argv)
 
     bool waitforauth = false;
     initing = INIT_RESET;
+#ifdef __ANDROID__
+    // the Java launcher unpacks the game data and passes its location as --android=<path>
+    SDL_SetHint(SDL_HINT_ANDROID_TRAP_BACK_BUTTON, "1");
+    SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0"); // touch input is handled in touchevent()
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+    for(int i = 1; i<argc; i++) if(!strncmp(argv[i], "--android=", 10))
+    {
+        defformatstring(gamedir)("%s/game", &argv[i][10]);
+        if(chdir(gamedir) < 0) fatal("could not find game data in %s", gamedir);
+        defformatstring(homedir)("%s/home", &argv[i][10]);
+        sethomedir(homedir);
+    }
+#endif
     for(int i = 1; i<argc; i++)
     {
         clientlogf("parsing commandline argument %d: \"%s\"", i, argv[i]);
@@ -1265,6 +1457,10 @@ int main(int argc, char **argv)
                     else if(!strncmp(argv[i], "--home=", 7))
                     {
                         sethomedir(&argv[i][7]);
+                    }
+                    else if(!strncmp(argv[i], "--android=", 10))
+                    {
+                        // parsed first
                     }
                     else if(!strncmp(argv[i], "--mod=", 6))
                     {
@@ -1370,9 +1566,12 @@ int main(int argc, char **argv)
 
     initlog("video: misc");
 
-#ifndef __APPLE__
+#if !defined(__APPLE__) && !defined(__ANDROID__)
     SDL_Surface *icon = IMG_Load("packages/misc/icon.png");
     SDL_SetWindowIcon(screen, icon);
+#endif
+#ifdef __ANDROID__
+    SDL_AddEventWatch(appevents, NULL);
 #endif
 
 #ifdef __APPLE__
@@ -1421,6 +1620,7 @@ int main(int argc, char **argv)
 
     exec("config/scontext.cfg");
     exec("config/keymap.cfg");
+    initgamepads();
     execfile("config/mapmodelattributes.cfg");
     exec("config/menus.cfg");
     exec("config/scripts.cfg");
@@ -1554,6 +1754,7 @@ int main(int argc, char **argv)
         totalmillis = millis;
 
         checkinput();
+        updategamepads();
 
         if(lastmillis) updateworld(curtime, lastmillis);
 

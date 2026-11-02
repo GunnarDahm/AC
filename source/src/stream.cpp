@@ -520,6 +520,12 @@ static int rwopsclose(SDL_RWops *rw)
     return 0;
 }
 
+static Sint64 rwopssize(SDL_RWops *rw)
+{
+    stream *f = (stream *)rw->hidden.unknown.data1;
+    return f->size();
+}
+
 SDL_RWops *stream::rwops()
 {
     SDL_RWops *rw = SDL_AllocRW();
@@ -529,6 +535,7 @@ SDL_RWops *stream::rwops()
     rw->read = rwopsread;
     rw->write = rwopswrite;
     rw->close = rwopsclose;
+    rw->size = rwopssize;
     return rw;
 }
 #endif

@@ -147,6 +147,45 @@ bool menuvisible()
     return true;
 }
 
+bool menuallowsinput()
+{
+    return curmenu && curmenu->allowinput;
+}
+
+// touch input: x and y are the finger position as a fraction of the screen size
+// a tap on a menu item selects it (on release) and then activates it like the return key
+bool menutouch(float x, float y, bool release)
+{
+    if(!menuallowsinput()) return false;
+    gmenu &m = *curmenu;
+    int vx = int(x*2*VIRTW), vy = int(y*2*VIRTH), rowtop = m.itemsy - FONTH/6;
+    if(vx < m.itemsx - FONTH || vx > m.itemsx + m.itemsw + FONTH || vy < rowtop || vy >= rowtop + m.itemscount*m.itemstep) return true;
+    int idx = m.itemsoffset + (vy - rowtop)/m.itemstep;
+    if(!release || !m.items.inrange(idx) || m.items[idx]->greyedout) return true;
+    if(m.hotkeys)
+    {
+        menuselect(&m, idx);
+        m.items[idx]->select();
+        return true;
+    }
+    menuselect(&m, idx);
+    menukey(SDLK_RETURN, true);
+    menukey(SDLK_RETURN, false);
+    return true;
+}
+
+// touch input: dragging a finger up or down in a menu scrolls the selection, dy is a fraction of the screen height
+bool menudrag(float dy)
+{
+    if(!menuallowsinput()) return false;
+    static float acc = 0;
+    acc += dy*2*VIRTH;
+    int step = max(curmenu->itemstep, 1);
+    while(acc >= step) { acc -= step; menukey(SDLK_UP, true); menukey(SDLK_UP, false); }
+    while(acc <= -step) { acc += step; menukey(SDLK_DOWN, true); menukey(SDLK_DOWN, false); }
+    return true;
+}
+
 extern void *scoremenu;
 
 void rendermenu()
@@ -1511,6 +1550,7 @@ void gmenu::render()
     }
     draw_text(t, x, y);
     y += step*2;
+    itemsx = x; itemsy = y; itemsw = w; itemstep = step; itemsoffset = offset; itemscount = cdisp;
     loopj(cdisp)
     {
         items[offset+j]->render(x, y, w);

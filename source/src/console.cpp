@@ -2,6 +2,10 @@
 
 #include "cube.h"
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 #define CONSPAD (FONTH/3)
 
 VARP(altconsize, 0, 0, 100);
@@ -108,7 +112,11 @@ void clientlogf(const char *s, ...)
     do
     { // break into single lines first
         if((p = strchr(l, '\n'))) *p = '\0';
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "assaultcube", "%s", l); // stdout goes nowhere on android
+#else
         printf("%s%s\n", ts, l);
+#endif
         if(clientlogfile)
         {
             clientlogfile->printf("%s%s\n", ts, l);

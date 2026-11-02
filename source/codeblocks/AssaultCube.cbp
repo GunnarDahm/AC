@@ -380,6 +380,10 @@
 			<Option target="default" />
 			<Option target="debug" />
 		</Unit>
+		<Unit filename="../src/gamepad.cpp">
+			<Option target="default" />
+			<Option target="debug" />
+		</Unit>
 		<Unit filename="../src/physics.cpp">
 			<Option target="default" />
 			<Option target="debug" />

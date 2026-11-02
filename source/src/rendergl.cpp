@@ -25,9 +25,17 @@ PFNGLACTIVESTENCILFACEEXTPROC glActiveStencilFace_ = NULL;
 PFNGLSTENCILOPSEPARATEATIPROC   glStencilOpSeparate_ = NULL;
 PFNGLSTENCILFUNCSEPARATEATIPROC glStencilFuncSeparate_ = NULL;
 
+#ifdef USE_GLES
+#include <gl4esinit.h>
+#endif
+
 void *getprocaddress(const char *name)
 {
+#ifdef USE_GLES
+    return gl4es_GetProcAddress(name);
+#else
     return SDL_GL_GetProcAddress(name);
+#endif
 }
 
 bool hasext(const char *exts, const char *ext)
@@ -1003,6 +1011,13 @@ float depthcorrect(float d)
 
 void readdepth(int w, int h, vec &pos)
 {
+#ifdef USE_GLES
+    // OpenGL ES can't read back the depth buffer: aim along the view direction and stop at the first wall, floor or ceiling
+    cursordepth = 0.5f;
+    pos = vec(camdir).mul(2*ssize).add(camera1->o);
+    intersectgeometry(camera1->o, pos);
+    return;
+#endif
     glReadPixels(w/2, h/2, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &cursordepth);
     vec screen(0, 0, depthcorrect(cursordepth)*2 - 1);
     vec4 world;

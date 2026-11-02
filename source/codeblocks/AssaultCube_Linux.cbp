@@ -255,6 +255,7 @@
 		<Unit filename="../src/worldio.cpp" />
 		<Unit filename="../src/server.cpp" />
 		<Unit filename="../src/serverbrowser.cpp" />
+		<Unit filename="../src/gamepad.cpp" />
 		<Unit filename="../src/physics.cpp" />
 		<Unit filename="../src/soundscheduler.cpp" />
 		<Unit filename="../src/renderhud.cpp" />

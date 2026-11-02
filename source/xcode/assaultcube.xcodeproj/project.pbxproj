@@ -59,6 +59,7 @@
 		B914CEAB11CAC42F009BA307 /* openal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B914CE5C11CAC42F009BA307 /* openal.cpp */; };
 		B914CEAC11CAC42F009BA307 /* packetqueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B914CE5D11CAC42F009BA307 /* packetqueue.cpp */; };
 		B914CEAD11CAC42F009BA307 /* pch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B914CE5E11CAC42F009BA307 /* pch.cpp */; };
+		A0C0FFEE0000000000000001 /* gamepad.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A0C0FFEE0000000000000002 /* gamepad.cpp */; };
 		B914CEAE11CAC42F009BA307 /* physics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B914CE5F11CAC42F009BA307 /* physics.cpp */; };
 		B914CEB011CAC42F009BA307 /* protocol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B914CE6111CAC42F009BA307 /* protocol.cpp */; };
 		B914CEB311CAC42F009BA307 /* rendercubes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B914CE6411CAC42F009BA307 /* rendercubes.cpp */; };
@@ -192,6 +193,7 @@
 		B914CE5C11CAC42F009BA307 /* openal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = openal.cpp; sourceTree = "<group>"; };
 		B914CE5D11CAC42F009BA307 /* packetqueue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = packetqueue.cpp; sourceTree = "<group>"; };
 		B914CE5E11CAC42F009BA307 /* pch.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pch.cpp; sourceTree = "<group>"; };
+		A0C0FFEE0000000000000002 /* gamepad.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gamepad.cpp; sourceTree = "<group>"; };
 		B914CE5F11CAC42F009BA307 /* physics.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = physics.cpp; sourceTree = "<group>"; };
 		B914CE6011CAC42F009BA307 /* platform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = platform.h; sourceTree = "<group>"; };
 		B914CE6111CAC42F009BA307 /* protocol.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = protocol.cpp; sourceTree = "<group>"; };
@@ -417,6 +419,7 @@
 				B914CE5C11CAC42F009BA307 /* openal.cpp */,
 				B914CE5D11CAC42F009BA307 /* packetqueue.cpp */,
 				B914CE5E11CAC42F009BA307 /* pch.cpp */,
+				A0C0FFEE0000000000000002 /* gamepad.cpp */,
 				B914CE5F11CAC42F009BA307 /* physics.cpp */,
 				B914CE6011CAC42F009BA307 /* platform.h */,
 				B914CE6111CAC42F009BA307 /* protocol.cpp */,
@@ -639,6 +642,7 @@
 				B914CEAB11CAC42F009BA307 /* openal.cpp in Sources */,
 				B914CEAC11CAC42F009BA307 /* packetqueue.cpp in Sources */,
 				B914CEAD11CAC42F009BA307 /* pch.cpp in Sources */,
+				A0C0FFEE0000000000000001 /* gamepad.cpp in Sources */,
 				B914CEAE11CAC42F009BA307 /* physics.cpp in Sources */,
 				B914CEB011CAC42F009BA307 /* protocol.cpp in Sources */,
 				B914CEB311CAC42F009BA307 /* rendercubes.cpp in Sources */,

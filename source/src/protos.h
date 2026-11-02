@@ -166,6 +166,9 @@ extern keym *findbindc(int code);
 // menus
 extern void rendermenu();
 extern bool menuvisible();
+extern bool menuallowsinput();
+extern bool menutouch(float x, float y, bool release);
+extern bool menudrag(float dy);
 extern void menureset(void *menu);
 extern void menuitemmanual(void *menu, char *text, char *action = NULL, color *bgcolor = NULL, const char *desc = NULL);
 extern void menuimagemanual(void *menu, const char *filename1, const char *filename2, char *text, char *action = NULL, color *bgcolor = NULL, const char *desc = NULL);
@@ -244,10 +247,12 @@ struct gmenu
     int xoffs, yoffs;
     char *previewtexture, *previewtexturetitle;
     mdirlist *dirlist;
+    int itemsx, itemsy, itemsw, itemstep, itemsoffset, itemscount; // where render() last put the items, for touch input
 
     gmenu() : name(NULL), title(NULL), header(NULL), footer(NULL), menuselinit(-1), initaction(NULL), usefont(NULL),
               allowblink(false), persistentselection(false), synctabstops(false), hasdesc(false), headfootheap(false),
-              mdl(NULL), footlen(0), xoffs(0), yoffs(0), previewtexture(NULL), previewtexturetitle(NULL), dirlist(NULL) {}
+              mdl(NULL), footlen(0), xoffs(0), yoffs(0), previewtexture(NULL), previewtexturetitle(NULL), dirlist(NULL),
+              itemsx(0), itemsy(0), itemsw(0), itemstep(1), itemsoffset(0), itemscount(0) {}
     virtual ~gmenu()
     {
         DELETEA(name);
@@ -885,6 +890,7 @@ extern void movebounceent(bounceent *p, int moveres, bool local);
 extern void entinmap(physent *d);
 extern void physicsframe();
 extern void mousemove(int idx, int idy);
+extern void lookdelta(float dyaw, float dpitch);
 extern void fixcamerarange(physent *cam = camera1);
 extern void updatecrouch(playerent *p, bool on);
 extern bool objcollide(physent *d, const vec &objpos, float objrad, float objheight);

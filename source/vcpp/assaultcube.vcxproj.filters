@@ -302,6 +302,9 @@
     <ClCompile Include="..\src\physics.cpp">
       <Filter>game</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\gamepad.cpp">
+      <Filter>game</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\scoreboard.cpp">
       <Filter>game</Filter>
     </ClCompile>

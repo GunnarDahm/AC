@@ -942,6 +942,22 @@ void mousemove(int idx, int idy)
     }
 }
 
+// game controller look, angles in degrees
+void lookdelta(float dyaw, float dpitch)
+{
+    if(intermission || ispaused || (player1->isspectating() && (player1->spectatemode==SM_FOLLOW1ST||player1->spectatemode==SM_OVERVIEW))) return;
+    extern float fov;
+    float zoomscale = min(dynfov()/fov, 1.0f); // finer aim while scoped
+    camera1->yaw += dyaw*zoomscale;
+    camera1->pitch += dpitch*zoomscale;
+    fixcamerarange();
+    if(camera1!=player1 && player1->spectatemode!=SM_DEATHCAM)
+    {
+        player1->yaw = camera1->yaw;
+        player1->pitch = camera1->pitch;
+    }
+}
+
 void entinmap(physent *d)    // brute force but effective way to find a free spawn spot in the map
 {
     vec orig(d->o);

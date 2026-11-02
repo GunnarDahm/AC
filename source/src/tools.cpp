@@ -379,7 +379,7 @@ void stackdumper(unsigned int type, EXCEPTION_POINTERS *ep)
 #endif
     fatal("%s", out);
 }
-#elif defined(linux) || defined(__linux) || defined(__linux__)
+#elif (defined(linux) || defined(__linux) || defined(__linux__)) && !defined(__ANDROID__) // bionic only has backtrace() from API 33, and android reports crashes itself
 
 #include <execinfo.h>
 

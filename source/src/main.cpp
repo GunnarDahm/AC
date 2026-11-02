@@ -1438,6 +1438,7 @@ int main(int argc, char **argv)
         if(chdir(gamedir) < 0) fatal("could not find game data in %s", gamedir);
         defformatstring(homedir)("%s/home", &argv[i][10]);
         sethomedir(homedir);
+        initmap = rndmapname(); // the first pick ran before the chdir and found no maps
     }
 #endif
     for(int i = 1; i<argc; i++)

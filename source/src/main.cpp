@@ -652,6 +652,11 @@ void setupscreen(int &useddepthbits, int &usedfsaa)
         0 /* try disabling everything */
     };
     int config = 0;
+#ifdef __ANDROID__
+    // EGL hands out the smallest depth buffer that fits, so asking for 16 bits gets exactly that, and with the
+    // engine's near plane that z-fights badly at medium range ("static" on textures); desktop drivers give 24 anyway
+    if(!depthbits) depthbits = 24;
+#endif
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
     if(!depthbits) SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
     if(!fsaa)

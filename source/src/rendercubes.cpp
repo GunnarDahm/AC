@@ -44,20 +44,102 @@ extern int ati_mda_bug;
         strips.count.setsize(0); \
     }
 
+#ifdef USE_GLES
+// gl4es copies and converts client-side vertex data on every draw call, and the world is thousands of small strips.
+// So on OpenGL ES each texture's strips and quads are unrolled into plain triangles, contiguous per texture,
+// and drawn with one glDrawArrays each.
+static vector<vertex> glesverts;
+
+static void unrollstrips(strips &s, GLenum type)
+{
+    loopv(s.first)
+    {
+        const vertex *v = &verts[s.first[i]];
+        int n = s.count[i];
+        switch(type)
+        {
+            case GL_TRIANGLES:
+                loopj(n) glesverts.add(v[j]);
+                break;
+            case GL_TRIANGLE_STRIP:
+                for(int j = 2; j < n; j++)
+                {
+                    // every other triangle of a strip has its first two vertices swapped, to keep the winding
+                    glesverts.add(v[j&1 ? j-1 : j-2]);
+                    glesverts.add(v[j&1 ? j-2 : j-1]);
+                    glesverts.add(v[j]);
+                }
+                break;
+            case GL_QUADS:
+                for(int j = 0; j+3 < n; j += 4)
+                {
+                    glesverts.add(v[j]); glesverts.add(v[j+1]); glesverts.add(v[j+2]);
+                    glesverts.add(v[j]); glesverts.add(v[j+2]); glesverts.add(v[j+3]);
+                }
+                break;
+        }
+    }
+    s.first.setsize(0);
+    s.count.setsize(0);
+}
+
+static int unrollbatch(stripbatch &sb)
+{
+    int start = glesverts.length();
+    unrollstrips(sb.tris, GL_TRIANGLES);
+    unrollstrips(sb.tristrips, GL_TRIANGLE_STRIP);
+    unrollstrips(sb.quads, GL_QUADS);
+    return start;
+}
+
+static void setglesarrays()
+{
+    vertex *buf = glesverts.getbuf();
+    glVertexPointer(3, GL_FLOAT, sizeof(vertex), &buf->x);
+    glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(vertex), &buf->r);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(vertex), &buf->u);
+}
+#endif
+
 void renderstripssky()
 {
     if(skystrips.tris.first.empty() && skystrips.tristrips.first.empty() && skystrips.quads.first.empty()) return;
     glDisable(GL_TEXTURE_2D);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+#ifdef USE_GLES
+    glesverts.setsize(0);
+    unrollbatch(skystrips);
+    if(glesverts.length())
+    {
+        setglesarrays();
+        glDrawArrays(GL_TRIANGLES, 0, glesverts.length());
+    }
+    setupstrips(); // point the arrays back at the frame's vertices
+#else
     RENDERSTRIPS(skystrips.tris, GL_TRIANGLES);
     RENDERSTRIPS(skystrips.tristrips, GL_TRIANGLE_STRIP);
     RENDERSTRIPS(skystrips.quads, GL_QUADS);
+#endif
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glEnable(GL_TEXTURE_2D);
 }
 
 void renderstrips()
 {
+#ifdef USE_GLES
+    static int starts[257];
+    glesverts.setsize(0);
+    loopj(renderedtexs) starts[j] = unrollbatch(stripbatches[j]);
+    starts[renderedtexs] = glesverts.length();
+    if(glesverts.length()) setglesarrays(); // only once everything is added: adding can move the buffer
+    loopj(renderedtexs)
+    {
+        int n = starts[j+1] - starts[j];
+        if(n <= 0) continue;
+        glBindTexture(GL_TEXTURE_2D, lookupworldtexture(stripbatches[j].tex)->id);
+        glDrawArrays(GL_TRIANGLES, starts[j], n);
+    }
+#else
     loopj(renderedtexs)
     {
         stripbatch &sb = stripbatches[j];
@@ -66,6 +148,7 @@ void renderstrips()
         RENDERSTRIPS(sb.tristrips, GL_TRIANGLE_STRIP);
         RENDERSTRIPS(sb.quads, GL_QUADS);
     }
+#endif
     renderedtexs = 0;
 
     glDisableClientState(GL_VERTEX_ARRAY);
